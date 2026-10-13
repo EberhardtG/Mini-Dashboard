@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+        #task-stats p {
+            font-size: 1.2rem;
+            margin: 5px 0;
+        }
+        #task-list p {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        .add-form {
+            display: flex;
+            gap: 8px;
+            margin: 20px 0;
+        }
+
+        .add-form input {
+            flex: 1;
+            padding: 10px;
+            font-size: 1rem;
+        }
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        </style>
+</head>
+<body>
+    <h1> Task Dashboard</h1>
+    <div id="task-stats">
+        <p>Total Tasks: <span id="total-tasks">0</span></p>
+        <p>Completed Tasks: <span id="completed-tasks">0</span></p>
+        <p>Pending Tasks: <span id="pending-tasks">0</span></p>
+    </div>
+     <div id="task-list"></div>
+     <p id="error" class="error"></p>
+     <div class="add-form">
+        <input type="text" id="new-task" placeholder="Add a new task...">
+        <button id="add-btn">Add</button>
+    </div>
+
+    <button id="refresh-btn">Refresh Dashboard</button>
+
+    <p id="last-updated">Last Updated: </p>
+    <script>
+        // -------------------------------------------------------------
+// WHY:
+// This dashboard provides a simple interface for viewing and
+// managing tasks stored in the mini FastAPI backend. The goal is
+// to show live stats, list all tasks, allow new tasks to be added,
+// and refresh the entire dashboard on demand. The assignment
+// mirrors the structure of real dashboards: API calls, data
+// rendering, forms, and a timestamp showing when data was last
+// fetched.
+//
+// DESIGN:
+// - A shared API base URL keeps fetch calls consistent.
+// - loadTasks() fetches all tasks from /tasks, clears the list,
+//   and re-renders each task with its status. This ensures the UI
+//   always reflects the backend state.
+// - loadStats() fetches summary counts from /stats and updates
+//   the stats bar. Using the API’s stats endpoint avoids manually
+//   recalculating totals.
+// - addTask() reads input, POSTs a new task to /tasks, clears the
+//   field, and refreshes both tasks and stats so the dashboard
+//   updates immediately.
+// - refreshAll() centralizes all refresh logic: it calls both
+//   loadTasks() and loadStats(), then updates the “Last Updated”
+//   timestamp using toLocaleTimeString() as required.
+// - Event listeners connect the Add and Refresh buttons to their
+//   respective functions, and refreshAll() runs on page load so
+//   the dashboard starts with live data.
+// -------------------------------------------------------------
+
+        const API = "http://localhost:8000";  // Base URL for our FastAPI server
+        
+        //define error element
+        const errorEl = document.getElementById("error");
+        const newTaskInput = document.getElementById("new-task");
+    
+
+        // Function to load task statistics
+        async function loadTasks() {
+    try {
+        const response = await fetch(`${API}/tasks`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const tasks = await response.json();
+
+        const listEl = document.getElementById("task-list");
+        listEl.innerHTML = ""; // Clear old tasks
+
+        tasks.forEach(task => {
+            const item = document.createElement("p");
+            item.textContent = `${task.title} — ${task.done ? "✔ Done" : "⏳ Pending"}`;
+            listEl.appendChild(item);
+        });
+
+    } catch (error) {
+        console.error("Error loading tasks:", error);
+        errorEl.textContent = "Failed to load tasks.";
+    }
+}
+      // Function to load task statistics
+        async function loadStats() {
+    try {
+        const response = await fetch(`${API}/stats`);
+        if (!response.ok) throw new Error("Failed to load stats");
+
+        const stats = await response.json();
+
+        document.getElementById("total-tasks").textContent = stats.total;
+        document.getElementById("completed-tasks").textContent = stats.done;
+        document.getElementById("pending-tasks").textContent = stats.pending;
+    } catch (err) {
+        console.error(err);
+    }
+}
+//function  to add task
+async function addTask() {
+    
+
+        const title = newTaskInput.value.trim();
+        if (!title) return;
+
+        try {
+            const response = await fetch(`${API}/tasks`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            newTaskInput.value = "";   // Clear the input
+            loadTasks();                // Refresh the task list
+            loadStats();                // Refresh the stats
+        } catch (error) {
+            errorEl.textContent = "Failed to add task";
+        }
+    }
+
+    // Function to refresh task stats
+    async function refreshAll() {
+        loadStats();
+        loadTasks();
+        document.getElementById("last-updated").textContent =
+    `Last Updated: ${new Date().toLocaleTimeString()}`;
+
+    }
+    
+
+        // Event listener for the refresh button
+        document.getElementById("refresh-btn").addEventListener("click", refreshAll);
+        document.getElementById("add-btn").addEventListener("click", addTask);
+
+
+        // Load stats on page load
+        window.addEventListener("load", () => {
+            refreshAll();
+        });
+    </script>
+</body>
+</html>
